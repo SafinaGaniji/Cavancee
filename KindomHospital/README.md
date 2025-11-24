@@ -1,102 +1,140 @@
-# KindomHospital
-<img src="https://media.senscritique.com/media/000006507220/300/kingdom_hospital.jpg" width="10%">
-Ce dépôt contient l'application `KindomHospital` (.NET 9).
+📌 Présentation du projet
 
-## Objectif
+KingdomHospital est un système de gestion médicale développé avec ASP.NET Core et Entity Framework Core.
+Ce dépôt contient toute la partie Back-End, incluant :
 
-Ce fichier décrit l'organisation des répertoires et des fichiers principaux du projet.
+Les entités (modèles)
 
-## Architecture (réelle)
+La configuration Fluent API
 
-Le projet suit une séparation en couches  minimale : `Presentation`, `Application`, `Infrastructure` et `Domain`.
+Le DbContext
 
-```
-┌──────────────────────────────┐
-│          Presentation        │  → ASP.NET Core Controllers, Blazor, etc.
-└──────────────▲───────────────┘
-               │ (calls)
-┌──────────────┴───────────────┐
-│         Application          │  → Services métiers, Handlers CQRS, DTO, interfaces
-└──────────────▲───────────────┘
-               │ (depends on abstractions only)
-┌──────────────┴───────────────┐
-│           Domain             │  → Entités, ValueObjects, règles métier pures
-└──────────────▲───────────────┘
-               │ (implemented by)
-┌──────────────┴───────────────┐
-│        Infrastructure        │  → EF Core, Repositories, Files, Email, APIs externes
-└──────────────────────────────┘
-```
+Les migrations EF Core
 
+La génération de la base SQL Server
 
-- `Presentation/`
-  - Contient l'interface d'exposition de l'application (API controllers, endpoints).
-  - Exemple : `Presentation/Controllers/WeatherForecastController.cs`.
-  - Rôle : recevoir les requêtes HTTP, valider les entrées, appeler les services de la couche `Application` et retourner les réponses.
+Ce README sert aussi de suivi d’avancement pour le développement.
 
-- `Application/`
-  - `Application/DTOs/` : objets de transfert (DTO) utilisés entre la présentation et les services.
-  - `Application/Mappers/` : définitions d'interfaces ou classes de mapping (ex. Mapperly) pour convertir entre entités du `Domain` et DTOs.
-  - `Application/Services/` : services d'application (use cases, orchestrations) qui contiennent la logique métier orientée cas d'utilisation et appellent le `Domain` pour les opérations métier.
-  - Rôle : centraliser la logique d'application (cas d'utilisation), garder la `Presentation` légère et découpler l'implémentation du `Domain`.
+📊 Statut d’avancement global
+Étape	Description	Statut
+1️⃣ Entités (Models)	Création de toutes les classes représentant les tables	✅ Terminé
+2️⃣ Fluent API	Relations, contraintes, comportements Delete	✅ Terminé
+3️⃣ DbContext	Configuration complète	✅ Terminé
+4️⃣ Migration initiale	Add-Migration InitialCreate	✅ Terminé
+5️⃣ Update Database	Base KindomHospitalDb créée	✅ Terminé
+6️⃣ Vérification SQL	Toutes les tables présentes	✅ Terminé
+7️⃣ Seed Data	Ajouter données initiales	⏳ En cours
+8️⃣ API (Controllers)	Endpoints REST	⏳ Pas commencé
+9️⃣ Swagger / Documentation API	Interface & tests	⏳ Pas commencé
+🔟 Frontend	Interface utilisateur	⏳ Pas commencé
+🧱 Architecture du projet
+KingdomHospital/
+│
+├── Models/
+│   ├── Consultation.cs
+│   ├── Doctor.cs
+│   ├── Patient.cs
+│   ├── Specialty.cs
+│   ├── Medicament.cs
+│   ├── Ordonnance.cs
+│   └── OrdonnanceLigne.cs
+│
+├── Configurations/
+│   ├── ConsultationConfiguration.cs
+│   ├── DoctorConfiguration.cs
+│   ├── PatientConfiguration.cs
+│   ├── SpecialtyConfiguration.cs
+│   ├── MedicamentConfiguration.cs
+│   ├── OrdonnanceConfiguration.cs
+│   └── OrdonnanceLigneConfiguration.cs
+│
+├── Data/
+│   └── AppDbContext.cs
+│
+└── Migrations/
+    ├── InitialCreate.cs
+    ├── InitialCreate.Designer.cs
+    └── AppDbContextModelSnapshot.cs
 
-- `Domain/`
-  - `Domain/Entities/` : entités et objets de valeur représentant le modèle de domaine (ex. `WeatherForecast` si pertinent).
-  - Rôle : contenir les entités et logique du domaine pur.
+🧠 Ce qui a été implémenté (techniquement)
+✔ Entités (Domain Models)
 
-- `Infrastructure/`
-  - `Infrastructure/Migrations/` : migrations de base de données liées au modèle de domaine (si vous utilisez EF Core ici).
-  - `Infrastructure/Configurations/` : configurations du modèle (ex. `IEntityTypeConfiguration<T>` pour EF Core) et règles de mapping/domaine.
-  - `Infrastructure/Repositories/` : implémentations concrètes des interfaces de dépôt (repositories) pour accéder aux données (ex. via EF Core). 
-  - Rôle : contenir les règles métier, invariants...
+Propriétés avec [Required], [MaxLength], relations navigationnelles…
 
-## Intégration et responsabilités
+Nullabilité respectée (string?, initialisation = string.Empty)
 
-- `Presentation` dépend de `Application` (appel de services, utilisation de DTOs).
-- `Application` dépend de `Domain` (manipulation d'entités, règles métier).
-- Les mappers de `Application/Mappers` convertissent entre `Domain` et `Application/DTOs`.
-- Les configurations EF (dans `Domain/Configurations`) décrivent la persistance des entités si EF Core est utilisé.
+✔ Fluent API
 
-## Où ajouter le code
+Configuration fine des relations :
 
-- En cas d'ajout d'un nouveau cas d'utilisation :
-  1. Créer les DTOs dans `Application/DTOs/`.
-  2. Ajouter le service d'application correspondant dans `Application/Services/`.
-  3. Ajouter l'entité (ou la mettre à jour) dans `Domain/Entities/`.
-  4. Ajouter les mappings dans `Application/Mappers/`.
-  5. Exposer l'endpoint dans `Presentation/Controllers/`.
+One-to-Many
 
-## Configuration rapide
+Many-to-One
 
-- Enregistrer les services d'application et les mappers dans `Program.cs` via DI.
-- Si vous utilisez EF Core, vous pouvez ajouter le `DbContext` et les migrations et configurer la chaîne de connexion dans `Program.cs`.
+DeleteBehavior : Restrict, SetNull
 
-## Commandes utiles
+Renommage des tables
 
-- `dotnet build` — compiler le(s) projet(s)
-- `dotnet run --project KindomHospital/KindomHospital.csproj` — lancer l'application
+Contraintes supplémentaires
 
----
+✔ DbContext
 
-## Packages NuGet nécessaires
+Tous les DbSet configurés
 
-Pour exploiter pleinement cette architecture, voici les principaux packages NuGet à installer?:
+OnModelCreating : application automatique de toutes les configurations
 
-- `Microsoft.AspNetCore.OpenApi` : support OpenAPI/Swagger pour la documentation d'API
-- `Microsoft.EntityFrameworkCore` : ORM Entity Framework Core (accès aux données)
-- `Microsoft.EntityFrameworkCore.SqlServer` : provider SQL Server pour EF Core
-- `Microsoft.EntityFrameworkCore.Design` : outils de design (migrations, scaffolding)
-- `Microsoft.EntityFrameworkCore.Tools` : outils CLI/support de migration
-- `Riok.Mapperly` : générateur de mappers (pour la couche Application)
+✔ Migrations
 
+Migration initiale créée
 
----
+Base SQL Server générée automatiquement
 
-## N'oubliez pas de :
+Structure confirmée côté SSMS
 
-- Ajouter votre connection string dans le fichier Appsettings
-- Pour la commande Add-Migration ajouter le paramètre : -OutputDir Infrastructure/Migrations
-- Configurer le pipeline HTTP avec votre contexte, Mapper, Repositories et Services
-- Supprimer les fichiers inutiles (WeatherForecast par exemple)
-- Adapter le README à votre projet)
-- Ajouter un fichier .gitignore si nécessaire
+🗺️ Roadmap (visuelle)
+📦 Version 1.0 – Base de données (OK ✔)
+│
+├── ✔ Création des entités
+├── ✔ Configurations Fluent API
+├── ✔ Mise en place du DbContext
+└── ✔ Migration + génération de la base SQL
+
+🚧 Version 1.1 – API (en cours)
+│
+├── ⏳ Controllers (Patients, Doctors, Consultations…)
+├── ⏳ Services (business logic)
+├── ⏳ DTOs + Automapper
+└── ⏳ Validation (FluentValidation)
+
+✨ Version 2.0 – Documentation & outils
+│
+├── ⏳ Intégration Swagger
+├── ⏳ Documentation des endpoints
+└── ⏳ Tests Postman automatisés
+
+🎨 Version 3.0 – Frontend
+│
+├── ⏳ Choix du framework (Blazor / MVC / MAUI)
+├── ⏳ Connexion API
+└── ⏳ UI complète
+
+🛠️ Commandes importantes EF Core
+➤ Créer une migration
+Add-Migration NomDeMigration
+
+➤ Appliquer les migrations
+Update-Database
+
+➤ Supprimer la dernière migration
+Remove-Migration
+
+🧪 Vérification SQL
+
+Dans SQL Server Management Studio, vérifier la base :
+
+USE KindomHospitalDb;
+GO
+
+SELECT * FROM Doctors;
+SELECT * FROM Patients;
+SELECT * FROM Consultations;
