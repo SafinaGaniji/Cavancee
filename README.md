@@ -1,85 +1,121 @@
-# KindomHospital
-<img src="https://media.senscritique.com/media/000006507220/300/kingdom_hospital.jpg" width="10%">
-Ce dépôt contient l'application `KindomHospital` (.NET 9).
+KingdomHospital - Back-End
 
-## Objectif
+KingdomHospital est un système de gestion médicale développé avec ASP.NET Core et Entity Framework Core.
+Ce projet gère les entités médicales, leurs relations, les prescriptions et les consultations. Ce README sert à expliquer chaque étape réalisée, le raisonnement derrière chaque choix et la manière dont cela a été implémenté.
 
-Ce fichier décrit l'organisation des répertoires et des fichiers principaux du projet.
+1. Entités (Domain Models)
+Pourquoi ?
+Les entités représentent les tables de notre base de données. Elles permettent de structurer les données de manière logique et de gérer les relations entre elles. Chaque entité correspond à un concept du domaine médical : médecins, patients, consultations, médicaments, ordonnances, etc.
 
-## Architecture (réelle)
+Comment ?
+Chaque entité a été créée avec :
+Des propriétés simples (string, int, DateTime) avec [Required] pour garantir la présence de données et [MaxLength] pour limiter la taille des chaînes.
 
-Le projet suit une séparation en couches  minimale : `Presentation`, `Application`, `Infrastructure` et `Domain`.
+Des propriétés nullables (string?, int?) pour gérer les relations optionnelles, comme ConsultationId dans Ordonnance.
 
-```
-┌──────────────────────────────┐
-│          Presentation        │  → ASP.NET Core Controllers, Blazor, etc.
-└──────────────▲───────────────┘
-               │ (calls)
-┌──────────────┴───────────────┐
-│         Application          │  → Services métiers, Handlers CQRS, DTO, interfaces
-└──────────────▲───────────────┘
-               │ (depends on abstractions only)
-┌──────────────┴───────────────┐
-│           Domain             │  → Entités, ValueObjects, règles métier pures
-└──────────────▲───────────────┘
-               │ (implemented by)
-┌──────────────┴───────────────┐
-│        Infrastructure        │  → EF Core, Repositories, Files, Email, APIs externes
-└──────────────────────────────┘
-```
+Des collections initialisées (new List<T>()) pour éviter les erreurs null (NullReferenceException).
+
+Des relations navigationnelles pour EF Core, permettant de naviguer entre entités (Doctor.Consultations, Consultation.Ordonnances, etc.).
+
+Exemple :
+public class Consultation
+{
+    public int Id { get; set; }
+    public int DoctorId { get; set; }
+    public Doctor Doctor { get; set; } = null!;
+    public int PatientId { get; set; }
+    public Patient Patient { get; set; } = null!;
+    public DateTime Date { get; set; }
+    public TimeSpan Time { get; set; }
+    public string? Reason { get; set; }
+    public ICollection<Ordonnance> Ordonnances { get; set; } = new List<Ordonnance>();
+}
+
+2. Fluent API (Configurations)
+Pourquoi ?
+Même si EF Core peut générer automatiquement les tables et les relations à partir des entités, la Fluent API permet un contrôle fin : gérer les contraintes, renommer les tables, définir les comportements de suppression (DeleteBehavior) et sécuriser l’intégrité des relations.
+
+Comment ?
+Chaque entité possède sa propre classe de configuration.
+Les relations One-to-Many et Many-to-One sont définies explicitement.
+
+Les comportements de suppression sont adaptés : Restrict pour empêcher la suppression si une relation existe, SetNull pour mettre à null certaines clés étrangères.
+
+Les longueurs maximales, les champs requis et les unicités sont appliqués.
+
+Exemple :
+builder.HasMany(d => d.Consultations)
+       .WithOne(c => c.Doctor)
+       .HasForeignKey(c => c.DoctorId)
+       .OnDelete(DeleteBehavior.Restrict);
+
+3. DbContext
+Pourquoi ?
+Le DbContext est le cœur d’EF Core : il représente la base de données dans le code, permet de faire des opérations CRUD et gère l’application des configurations.
+
+Comment ?
+Tous les DbSet représentant les tables sont déclarés.
+OnModelCreating applique automatiquement toutes les configurations Fluent API.
+Prêt pour les requêtes, insertions, mises à jour et suppressions sécurisées.
+
+4. Migrations
+Pourquoi ?
+Les migrations permettent de synchroniser le code C# et la base SQL. Elles génèrent la structure des tables et appliquent les contraintes définies dans les entités et configurations.
+
+Comment ?
+Une migration initiale InitialCreate a été créée.
+La base KindomHospitalDb a été générée automatiquement dans SQL Server.
+Toutes les tables, clés primaires, clés étrangères et contraintes ont été vérifiées.
+
+Commandes EF Core :
+
+Add-Migration InitialCreate
+Update-Database
+
+5. Vérification SQL
+Pourquoi ?
+Vérifier que la base de données correspond aux attentes du modèle permet de détecter les erreurs avant de développer l’API.
+Comment ?
+Ouverture de SQL Server Management Studio pour vérifier l’existence des tables et des colonnes.
+Test des clés primaires et étrangères, des contraintes NOT NULL, MAX LENGTH et UNIQUE.
+Vérification que les relations navigationnelles sont correctes.
+
+Exemple de vérification :
+
+USE KindomHospitalDb;
+GO
+SELECT * FROM Doctors;
+SELECT * FROM Patients;
+SELECT * FROM Consultations;
+SELECT * FROM Specialties;
+SELECT * FROM Medicaments;
+SELECT * FROM Ordonnances;
+SELECT * FROM OrdonnanceLignes;
+
+6. DTOs (Data Transfer Objects)
+Pourquoi ?
+Les DTOs permettent de protéger les entités et contrôler les échanges avec l’API. Cela évite de renvoyer directement les entités complètes, ce qui pourrait exposer des données sensibles ou des relations complexes.
+
+Comment ?
+Chaque entité possède trois DTOs : CreateDTO, UpdateDTO, ReadDTO.
+Les DTOs appliquent des validations [Required], [MaxLength] et [Range] pour assurer l’intégrité côté API.
+Les relations sont simplifiées dans les DTO de lecture, par exemple avec DoctorName ou PatientName.
+
+Exemple pour Specialty :
+
+Créer une spécialité avec SpecialtyCreateDTO
+
+Modifier le nom avec SpecialtyUpdateDTO
+
+Lire l’ID et le nom avec SpecialtyReadDTO
+
+Exemple DTO :
+
+public class SpecialtyReadDTO
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
 
 
-- `Presentation/`
-  - Contient l'interface d'exposition de l'application (API controllers, endpoints).
-  - Exemple : `Presentation/Controllers/WeatherForecastController.cs`.
-  - Rôle : recevoir les requêtes HTTP, valider les entrées, appeler les services de la couche `Application` et retourner les réponses.
-
-- `Application/`
-  - `Application/DTOs/` : objets de transfert (DTO) utilisés entre la présentation et les services.
-  - `Application/Mappers/` : définitions d'interfaces ou classes de mapping (ex. Mapperly) pour convertir entre entités du `Domain` et DTOs.
-  - `Application/Services/` : services d'application (use cases, orchestrations) qui contiennent la logique métier orientée cas d'utilisation et appellent le `Domain` pour les opérations métier.
-  - Rôle : centraliser la logique d'application (cas d'utilisation), garder la `Presentation` légère et découpler l'implémentation du `Domain`.
-
-- `Domain/`
-  - `Domain/Entities/` : entités et objets de valeur représentant le modèle de domaine (ex. `WeatherForecast` si pertinent).
-  - Rôle : contenir les entités et logique du domaine pur.
-
-- `Infrastructure/`
-  - `Infrastructure/Migrations/` : migrations de base de données liées au modèle de domaine (si vous utilisez EF Core ici).
-  - `Infrastructure/Configurations/` : configurations du modèle (ex. `IEntityTypeConfiguration<T>` pour EF Core) et règles de mapping/domaine.
-  - Rôle : contenir les règles métier, invariants...
-
-
-## Où ajouter le code
-
-- En cas d'ajout d'un nouveau cas d'utilisation :
-  1. Créer les DTOs dans `Application/DTOs/`.
-  2. Ajouter le service d'application correspondant dans `Application/Services/`.
-  3. Ajouter l'entité (ou la mettre à jour) dans `Domain/Entities/`.
-  4. Ajouter les mappings dans `Application/Mappers/`.
-  5. Exposer l'endpoint dans `Presentation/Controllers/`.
-
----
-
-## Packages NuGet nécessaires
-
-Pour exploiter pleinement cette architecture, voici les principaux packages NuGet à installer?:
-
-- `Microsoft.AspNetCore.OpenApi` : support OpenAPI/Swagger pour la documentation d'API
-- `Microsoft.EntityFrameworkCore` : ORM Entity Framework Core (accès aux données)
-- `Microsoft.EntityFrameworkCore.SqlServer` : provider SQL Server pour EF Core
-- `Microsoft.EntityFrameworkCore.Design` : outils de design (migrations, scaffolding)
-- `Microsoft.EntityFrameworkCore.Tools` : outils CLI/support de migration
-- `Riok.Mapperly` : générateur de mappers (pour la couche Application)
-
-
----
-
-## N'oubliez pas de :
-
-- Ajouter votre connection string dans le fichier Appsettings
-- Pour la commande Add-Migration ajouter le paramètre : -OutputDir Infrastructure/Migrations
-- Configurer le pipeline HTTP avec votre contexte, Mapper, Repositories et Services
-- Supprimer les fichiers inutiles (WeatherForecast par exemple)
-- Adapter le README à votre projet)
-- Ajouter un fichier .gitignore si nécessaire
+💡 Avec cette structure, ton binôme peut comprendre à quoi sert chaque étape, pourquoi on le fait, et comment ça a été implémenté, sans avoir besoin de poser de questions.
