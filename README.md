@@ -164,7 +164,7 @@ public class SpecialtyReadDTO
 
 💡 Cette structure détaillée permet à ton binôme de comprendre **le pourquoi et le comment** de chaque étape sans poser de questions.
 
-## 6. DTOs et AutoMapper
+## 7. AutoMapper
 
 ### Pourquoi AutoMapper
 
