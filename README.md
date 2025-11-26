@@ -163,3 +163,54 @@ public class SpecialtyReadDTO
 ---
 
 💡 Cette structure détaillée permet à ton binôme de comprendre **le pourquoi et le comment** de chaque étape sans poser de questions.
+
+## 6. DTOs et AutoMapper
+
+### Pourquoi AutoMapper
+
+**AutoMapper** permet de **mapper automatiquement les entités vers les DTO et vice versa**. Cela évite d'écrire du code répétitif pour copier les valeurs des propriétés. Avec AutoMapper, quand on reçoit ou renvoie un objet via l'API, on utilise un DTO, mais l'entité originale reste protégée.
+
+### Comment
+
+* Créer un fichier `MappingProfile.cs` dans le dossier `Mapper`
+* Définir les mappings pour chaque entité :
+
+  * `CreateMap<Entity, ReadDTO>()` pour les retours GET
+  * `CreateMap<CreateDTO, Entity>()` pour les créations POST
+  * `CreateMap<UpdateDTO, Entity>()` pour les modifications PUT
+* Injecter AutoMapper dans les contrôleurs et l'utiliser pour convertir entre DTO et entités
+
+**Exemple MappingProfile**:
+
+```csharp
+public class MappingProfile : Profile
+{
+    public MappingProfile()
+    {
+        CreateMap<Specialty, SpecialtyReadDTO>();
+        CreateMap<SpecialtyCreateDTO, Specialty>();
+        CreateMap<SpecialtyUpdateDTO, Specialty>();
+
+        CreateMap<Doctor, DoctorReadDTO>();
+        CreateMap<DoctorCreateDTO, Doctor>();
+        CreateMap<DoctorUpdateDTO, Doctor>();
+
+        // Idem pour les autres entités...
+    }
+}
+```
+
+### Exemple dans un contrôleur
+
+```csharp
+[HttpGet]
+public async Task<ActionResult<IEnumerable<SpecialtyReadDTO>>> GetAll()
+{
+    var specialties = await _context.Specialties.ToListAsync();
+    var specialtiesDTO = _mapper.Map<List<SpecialtyReadDTO>>(specialties);
+    return Ok(specialtiesDTO);
+}
+```
+
+💡 Avec AutoMapper et les DTO, on **évite d'exposer directement les entités** et on **simplifie le code** des contrôleurs, tout en gardant la structure des données sécurisée et cohérente.
+
